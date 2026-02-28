@@ -23,7 +23,7 @@ The agent operates on an hourly frequency using a **multi-step agentic reasoning
 | Feature | Technology Used | Description |
 | :--- | :--- | :--- |
 | **Brain** | **DeepSeek-V3 Chat** | Logic & decision engine utilizing an agentic loop. |
-| **Eyes (Prices)** | **Dhan / KiteConnect** | High-precision Indian market data APIs. |
+| **Eyes (Prices)** | **nsepython / nselib** | Official NSE market data & historical history. |
 | **Ears (News)** | **Jina Search** | Targeted crawling of Indian financial news portals. |
 | **Hands (MCP)** | **Model Context Protocol** | Connecting the AI to local trading tools. |
 | **Storage** | **Python / JSONL** | Local log of all thinking steps and trades. |

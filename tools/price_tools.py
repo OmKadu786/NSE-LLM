@@ -15,6 +15,12 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 from tools.general_tools import get_config_value
 
+try:
+    from nsepython import nse_quote_ltp
+    HAS_NSEPYTHON = True
+except ImportError:
+    HAS_NSEPYTHON = False
+
 def _normalize_timestamp_str(ts: str) -> str:
     """
     Normalize timestamp string to zero-padded HH for robust string/chrono comparisons.
@@ -46,149 +52,23 @@ def _parse_timestamp_to_dt(ts: str) -> datetime:
 
 def get_market_type() -> str:
     """
-    Always returns 'us' for the dedicated NASDAQ environment.
+    Returns 'in' for the NSE (Indian) environment.
     """
-    return "us"
+    return "in"
 
 
-all_nasdaq_100_symbols = [
-    "NVDA",
-    "MSFT",
-    "AAPL",
-    "GOOG",
-    "GOOGL",
-    "AMZN",
-    "META",
-    "AVGO",
-    "TSLA",
-    "NFLX",
-    "PLTR",
-    "COST",
-    "ASML",
-    "AMD",
-    "CSCO",
-    "AZN",
-    "TMUS",
-    "MU",
-    "LIN",
-    "PEP",
-    "SHOP",
-    "APP",
-    "INTU",
-    "AMAT",
-    "LRCX",
-    "PDD",
-    "QCOM",
-    "ARM",
-    "INTC",
-    "BKNG",
-    "AMGN",
-    "TXN",
-    "ISRG",
-    "GILD",
-    "KLAC",
-    "PANW",
-    "ADBE",
-    "HON",
-    "CRWD",
-    "CEG",
-    "ADI",
-    "ADP",
-    "DASH",
-    "CMCSA",
-    "VRTX",
-    "MELI",
-    "SBUX",
-    "CDNS",
-    "ORLY",
-    "SNPS",
-    "MSTR",
-    "MDLZ",
-    "ABNB",
-    "MRVL",
-    "CTAS",
-    "TRI",
-    "MAR",
-    "MNST",
-    "CSX",
-    "ADSK",
-    "PYPL",
-    "FTNT",
-    "AEP",
-    "WDAY",
-    "REGN",
-    "ROP",
-    "NXPI",
-    "DDOG",
-    "AXON",
-    "ROST",
-    "IDXX",
-    "EA",
-    "PCAR",
-    "FAST",
-    "EXC",
-    "TTWO",
-    "XEL",
-    "ZS",
-    "PAYX",
-    "WBD",
-    "BKR",
-    "CPRT",
-    "CCEP",
-    "FANG",
-    "TEAM",
-    "CHTR",
-    "KDP",
-    "MCHP",
-    "GEHC",
-    "VRSK",
-    "CTSH",
-    "CSGP",
-    "KHC",
-    "ODFL",
-    "DXCM",
-    "TTD",
-    "ON",
-    "BIIB",
-    "LULU",
-    "CDW",
-    "GFS",
+all_nifty_50_symbols = [
+    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "BHARTIARTL",
+    "INFY", "ITC", "SBIN", "LICI", "HINDUNILVR",
+    "LT", "HCLTECH", "BAJFINANCE", "SUNPHARMA", "MARUTI",
+    "ADANIENT", "KOTAKBANK", "TITAN", "ULTRACEMCO", "AXISBANK",
+    "NTPC", "ADANIPORTS", "ASIANPAINT", "ONGC", "POWERGRID",
+    "COALINDIA", "TATASTEEL", "M&M", "JIOFIN", "HAL",
+    "JSWSTEEL", "TATAMOTORS", "APOLLOHOSP", "BAJAJ-AUTO", "BAJAJFINSV",
+    "BPCL", "CIPLA", "DIVISLAB", "DRREDDY", "EICHERMOT",
+    "GRASIM", "HEROMOTOCO", "INDUSINDBK", "LTIM", "NESTLEIND",
+    "SHREECEM", "TECHM", "WIPRO", "HINDALCO", "BRITANNIA"
 ]
-
-all_sse_50_symbols = [
-    "600519.SH",
-    "601318.SH",
-    "600036.SH",
-    "601899.SH",
-    "600900.SH",
-    "601166.SH",
-    "600276.SH",
-    "600030.SH",
-    "603259.SH",
-    "688981.SH",
-    "688256.SH",
-    "601398.SH",
-    "688041.SH",
-    "601211.SH",
-    "601288.SH",
-    "601328.SH",
-    "688008.SH",
-    "600887.SH",
-    "600150.SH",
-    "601816.SH",
-    "601127.SH",
-    "600031.SH",
-    "688012.SH",
-    "603501.SH",
-    "601088.SH",
-    "600309.SH",
-    "601601.SH",
-    "601668.SH",
-    "603993.SH",
-    "601012.SH",
-    "601728.SH",
-    "600690.SH",
-    "600809.SH",
     "600941.SH",
     "600406.SH",
     "601857.SH",
@@ -507,21 +387,30 @@ def get_open_prices(
     today_date: str, symbols: List[str], merged_path: Optional[str] = None, market: str = "us"
 ) -> Dict[str, Optional[float]]:
     """从 data/merged.jsonl 中读取指定日期与标的的开盘价。
-
-    Args:
-        today_date: 日期字符串，格式 YYYY-MM-DD或YYYY-MM-DD HH:MM:SS。
-        symbols: 需要查询的股票代码列表。
-        merged_path: 可选，自定义 merged.jsonl 路径；默认读取项目根目录下 data/merged.jsonl。
-        market: 市场类型，"us" 为美股，"cn" 为A股
-
-    Returns:
-        {symbol_price: open_price 或 None} 的字典；若未找到对应日期或标的，则值为 None。
+    如果是 Indian 且是今天，尝试通过 nsepython 获取实时 ltp。
     """
     wanted = set(symbols)
     results: Dict[str, Optional[float]] = {}
 
-    merged_file = _resolve_merged_file_path_for_date(today_date, market, merged_path)
+    # 尝试通过 nsepython 获取实时 ltp (仅限今日且为印度市场)
+    if HAS_NSEPYTHON and (market == "in" or market == "nse"):
+        try:
+            current_date_str = datetime.now().strftime("%Y-%m-%d")
+            # 如果请求的是今天，则优先使用实时数据
+            if today_date.startswith(current_date_str):
+                for sym in symbols:
+                    try:
+                        ltp = nse_quote_ltp(sym)
+                        if ltp:
+                            results[f"{sym}_price"] = float(ltp)
+                    except Exception:
+                        results[f"{sym}_price"] = None
+                if all(v is not None for v in results.values()) and len(results) == len(symbols):
+                    return results
+        except Exception:
+            pass
 
+    merged_file = _resolve_merged_file_path_for_date(today_date, market, merged_path)
     if not merged_file.exists():
         return results
 

@@ -6,39 +6,74 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 
+import os
+import json
+from datetime import datetime, timedelta
+import pandas as pd
+try:
+    from nselib import equity_history
+    HAS_NSELIB = True
+except ImportError:
+    HAS_NSELIB = False
+
 all_nifty_50_symbols = [
-    "RELIANCE.BSE", "TCS.BSE", "HDFCBANK.BSE", "ICICIBANK.BSE", "BHARTIARTL.BSE",
-    "INFY.BSE", "ITC.BSE", "SBIN.BSE", "LICI.BSE", "HINDUNILVR.BSE",
-    "LT.BSE", "HCLTECH.BSE", "BAJFINANCE.BSE", "SUNPHARMA.BSE", "MARUTI.BSE",
-    "ADANIENT.BSE", "KOTAKBANK.BSE", "TITAN.BSE", "ULTRACEMCO.BSE", "AXISBANK.BSE",
-    "NTPC.BSE", "ADANIPORTS.BSE", "ASIANPAINT.BSE", "ONGC.BSE", "POWERGRID.BSE",
-    "COALINDIA.BSE", "TATASTEEL.BSE", "M&M.BSE", "JIOFIN.BSE", "HAL.BSE",
-    "JSWSTEEL.BSE", "TATAMOTORS.BSE", "APOLLOHOSP.BSE", "BAJAJ-AUTO.BSE", "BAJAJFINSV.BSE",
-    "BPCL.BSE", "CIPLA.BSE", "DIVISLAB.BSE", "DRREDDY.BSE", "EICHERMOT.BSE",
-    "GRASIM.BSE", "HEROMOTOCO.BSE", "INDUSINDBK.BSE", "LTIM.BSE", "NESTLEIND.BSE",
-    "SHREECEM.BSE", "TECHM.BSE", "WIPRO.BSE", "HINDALCO.BSE", "BRITANNIA.BSE"
+    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "BHARTIARTL",
+    "INFY", "ITC", "SBIN", "LICI", "HINDUNILVR",
+    "LT", "HCLTECH", "BAJFINANCE", "SUNPHARMA", "MARUTI",
+    "ADANIENT", "KOTAKBANK", "TITAN", "ULTRACEMCO", "AXISBANK",
+    "NTPC", "ADANIPORTS", "ASIANPAINT", "ONGC", "POWERGRID",
+    "COALINDIA", "TATASTEEL", "M&M", "JIOFIN", "HAL",
+    "JSWSTEEL", "TATAMOTORS", "APOLLOHOSP", "BAJAJ-AUTO", "BAJAJFINSV",
+    "BPCL", "CIPLA", "DIVISLAB", "DRREDDY", "EICHERMOT",
+    "GRASIM", "HEROMOTOCO", "INDUSINDBK", "LTIM", "NESTLEIND",
+    "SHREECEM", "TECHM", "WIPRO", "HINDALCO", "BRITANNIA"
 ]
 
-
-def get_daily_price(SYMBOL: str):
-    FUNCTION = "TIME_SERIES_DAILY"
-    OUTPUTSIZE = "full"
-    APIKEY = os.getenv("ALPHAADVANTAGE_API_KEY")
-    url = (
-        f"https://www.alphavantage.co/query?function={FUNCTION}&symbol={SYMBOL}&outputsize={OUTPUTSIZE}&apikey={APIKEY}"
-    )
-    r = requests.get(url)
-    data = r.json()
-    print(f"Fetching {SYMBOL}...")
-    if data.get("Note") is not None or data.get("Information") is not None:
-        print(f"Error fetching {SYMBOL}: Limit reached or invalid.")
+def get_daily_price_nse(SYMBOL: str):
+    if not HAS_NSELIB:
+        print("nselib not installed.")
         return
-    # Use clean symbol for filename (remove suffix)
-    clean_sym = SYMBOL.split('.')[0]
-    with open(f"./daily_prices_{clean_sym}.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
 
+    print(f"Fetching historical data for {SYMBOL}...")
+    try:
+        # Fetch last 2 years of data
+        end_date = datetime.now().strftime("%d-%m-%Y")
+        start_date = (datetime.now() - timedelta(days=730)).strftime("%d-%m-%Y")
+        
+        df = equity_history(SYMBOL, "EQ", start_date, end_date)
+        
+        if df is None or df.empty:
+            print(f"No data for {SYMBOL}")
+            return
+
+        # Convert to Alpha Vantage-like format for the merger to work
+        # Alpha Vantage uses "Time Series (Daily)"
+        time_series = {}
+        for _, row in df.iterrows():
+            date_str = pd.to_datetime(row['Date']).strftime("%Y-%m-%d")
+            time_series[date_str] = {
+                "1. open": str(row['OPEN_PRICE']),
+                "2. high": str(row['HIGH_PRICE']),
+                "3. low": str(row['LOW_PRICE']),
+                "4. close": str(row['CLOSE_PRICE']),
+                "5. volume": str(row['TTL_TRD_QNTY'])
+            }
+        
+        data = {
+            "Meta Data": {
+                "1. Information": "Daily Prices (open, high, low, close) and Volumes",
+                "2. Symbol": SYMBOL,
+                "3. Last Refreshed": end_date
+            },
+            "Time Series (Daily)": time_series
+        }
+        
+        with open(f"./daily_prices_{SYMBOL}.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+            
+    except Exception as e:
+        print(f"Error fetching {SYMBOL}: {e}")
 
 if __name__ == "__main__":
     for symbol in all_nifty_50_symbols:
-        get_daily_price(symbol)
+        get_daily_price_nse(symbol)
