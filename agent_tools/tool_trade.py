@@ -18,9 +18,14 @@ from tools.price_tools import (get_latest_position, get_open_prices,
                                get_yesterday_open_and_close_price,
                                get_yesterday_profit, get_market_type, all_nifty_50_symbols)
 
-# --- Indian Market Guardrails ---
+# --- Indian Market Guardrails & Taxes ---
 MIN_TRADE_VALUE_INR = 2000.0  # Prevent DP charge eat-up
-DP_CHARGE_INR = 16.0          # Estimated DP charge per sell action
+DP_CHARGE_INR = 15.93         # Flat DP charge per sell action (inc. GST)
+STT_RATE = 0.001              # 0.1% for Equity Delivery (Buy & Sell)
+STAMP_DUTY_BUY_RATE = 0.00015 # 0.015% (Buy only)
+TRANS_CHARGE_RATE = 0.0000345 # 0.00345% (NSE)
+SEBI_CHARGE_RATE = 0.000001   # 0.0001% (SEBI)
+GST_RATE = 0.18               # 18% on Trans + SEBI
 # -------------------------------
 
 mcp = FastMCP("TradeTools")
@@ -176,9 +181,20 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
             "date": today_date
         }
 
-    # Calculate cash required for purchase: stock price × buy quantity
+    # Calculate fees if market is India
+    total_fees = 0
+    if market == "in":
+        stt = turnover * STT_RATE
+        stamp = turnover * STAMP_DUTY_BUY_RATE
+        trans = turnover * TRANS_CHARGE_RATE
+        sebi = turnover * SEBI_CHARGE_RATE
+        gst = (trans + sebi) * GST_RATE
+        total_fees = stt + stamp + trans + sebi + gst
+        print(f"🇮🇳 Indian Buy Taxes: ₹{total_fees:.2f} (Turnover: ₹{turnover:.2f})")
+
+    # Calculate cash required for purchase: turnover + fees
     try:
-        cash_left = current_position["CASH"] - turnover
+        cash_left = current_position["CASH"] - (turnover + total_fees)
     except Exception as e:
         # Defensive: if any unexpected structure, surface a clear error
         return {
@@ -422,15 +438,25 @@ def sell(symbol: str, amount: int) -> Dict[str, Any]:
                 }
 
     # Step 5: Execute sell operation, update position
+    # Calculate fees if market is India
+    total_fees = 0
+    if market == "in":
+        stt = turnover * STT_RATE
+        trans = turnover * TRANS_CHARGE_RATE
+        sebi = turnover * SEBI_CHARGE_RATE
+        gst = (trans + sebi) * GST_RATE
+        # DP Charge is applied once per sell action per stock
+        total_fees = stt + trans + sebi + gst + DP_CHARGE_INR
+        print(f"🇮🇳 Indian Sell Taxes: ₹{total_fees:.2f} (Turnover: ₹{turnover:.2f}, inc. ₹{DP_CHARGE_INR} DP Charge)")
+
     # Create a copy of current position to avoid directly modifying original data
     new_position = current_position.copy()
 
     # Decrease stock position quantity
     new_position[symbol] -= amount
 
-    # Increase cash balance: sell price × sell quantity
-    # Use get method to ensure CASH field exists, default to 0 if not present
-    new_position["CASH"] = new_position.get("CASH", 0) + this_symbol_price * amount
+    # Increase cash balance: turnover - fees
+    new_position["CASH"] = new_position.get("CASH", 0) + (turnover - total_fees)
 
     # Step 6: Record transaction to position.jsonl file
     # Build file path: {project_root}/data/{log_path}/{signature}/position/position.jsonl
