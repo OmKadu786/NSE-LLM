@@ -281,6 +281,20 @@ class BaseAgent:
         "GFS",
     ]
 
+    # Default NIFTY 50 stock symbols
+    DEFAULT_NIFTY_50_SYMBOLS = [
+        "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "BHARTIARTL",
+        "INFY", "ITC", "SBIN", "LICI", "HINDUNILVR",
+        "LT", "HCLTECH", "BAJFINANCE", "SUNPHARMA", "MARUTI",
+        "ADANIENT", "KOTAKBANK", "TITAN", "ULTRACEMCO", "AXISBANK",
+        "NTPC", "ADANIPORTS", "ASIANPAINT", "ONGC", "POWERGRID",
+        "COALINDIA", "TATASTEEL", "M&M", "JIOFIN", "HAL",
+        "JSWSTEEL", "TATAMOTORS", "APOLLOHOSP", "BAJAJ-AUTO", "BAJAJFINSV",
+        "BPCL", "CIPLA", "DIVISLAB", "DRREDDY", "EICHERMOT",
+        "GRASIM", "HEROMOTOCO", "INDUSINDBK", "LTIM", "NESTLEIND",
+        "SHREECEM", "TECHM", "WIPRO", "HINDALCO", "BRITANNIA"
+    ]
+
     def __init__(
         self,
         signature: str,
@@ -328,6 +342,8 @@ class BaseAgent:
                 from prompts.agent_prompt import all_sse_50_symbols
 
                 self.stock_symbols = all_sse_50_symbols
+            elif market == "in":
+                self.stock_symbols = self.DEFAULT_NIFTY_50_SYMBOLS
             else:
                 # Default to US NASDAQ 100
                 self.stock_symbols = self.DEFAULT_STOCK_SYMBOLS
@@ -616,7 +632,12 @@ class BaseAgent:
 
         print(f"✅ Agent {self.signature} registration completed")
         print(f"📁 Position file: {self.position_file}")
-        currency_symbol = "¥" if self.market == "cn" else "$"
+        if self.market == "cn":
+            currency_symbol = "¥"
+        elif self.market == "in":
+            currency_symbol = "₹"
+        else:
+            currency_symbol = "$"
         print(f"💰 Initial cash: {currency_symbol}{self.initial_cash:,.2f}")
         print(f"📊 Number of stocks: {len(self.stock_symbols)}")
 

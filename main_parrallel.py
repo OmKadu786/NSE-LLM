@@ -10,7 +10,7 @@ load_dotenv()
 
 # Import tools and prompts
 from tools.general_tools import write_config_value
-from prompts.agent_prompt import all_nasdaq_100_symbols
+from prompts.agent_prompt import all_nasdaq_100_symbols, all_nifty_50_symbols
 
 
 # Agent class mapping table - for dynamic import and instantiation
@@ -129,14 +129,21 @@ async def _run_model_in_current_process(AgentClass, model_config, INIT_DATE, END
     max_retries = agent_config.get("max_retries", 3)
     base_delay = agent_config.get("base_delay", 0.5)
     initial_cash = agent_config.get("initial_cash", 10000.0)
-
+    from tools.general_tools import get_config_value
     log_path = log_config.get("log_path", "./data/agent_data")
 
     try:
+        market = get_config_value("MARKET", "us")
+        stock_symbols = None
+        if market == "in":
+            stock_symbols = all_nifty_50_symbols
+        else:
+            stock_symbols = all_nasdaq_100_symbols
+
         agent = AgentClass(
             signature=signature,
             basemodel=basemodel,
-            stock_symbols=all_nasdaq_100_symbols,
+            stock_symbols=stock_symbols,
             log_path=log_path,
             openai_base_url=openai_base_url,
             openai_api_key=openai_api_key,
@@ -144,7 +151,8 @@ async def _run_model_in_current_process(AgentClass, model_config, INIT_DATE, END
             max_retries=max_retries,
             base_delay=base_delay,
             initial_cash=initial_cash,
-            init_date=INIT_DATE
+            init_date=INIT_DATE,
+            market=market
         )
 
         print(f"✅ {AgentClass.__name__} instance created successfully: {agent}")
@@ -156,7 +164,9 @@ async def _run_model_in_current_process(AgentClass, model_config, INIT_DATE, END
         print(f"📊 Final position summary:")
         print(f"   - Latest date: {summary.get('latest_date')}")
         print(f"   - Total records: {summary.get('total_records')}")
-        print(f"   - Cash balance: ${summary.get('positions', {}).get('CASH', 0):.2f}")
+        market = get_config_value("MARKET", "us")
+        currency_symbol = "₹" if market == "in" else "$"
+        print(f"   - Cash balance: {currency_symbol}{summary.get('positions', {}).get('CASH', 0):,.2f}")
 
     except Exception as e:
         print(f"❌ Error processing model {model_name} ({signature}): {str(e)}")

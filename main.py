@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from prompts.agent_prompt import all_nasdaq_100_symbols
+from prompts.agent_prompt import all_nasdaq_100_symbols, all_nifty_50_symbols
 # Import tools and prompts
 from tools.general_tools import get_config_value, write_config_value
 
@@ -135,6 +135,8 @@ async def main(config_path=None):
         print(f"🌍 Market type: Cryptocurrency (24/7 trading)")
     elif market == "cn":
         print(f"🌍 Market type: A-shares (China)")
+    elif market == "in":
+        print(f"🌍 Market type: NSE Equities (India)")
     else:
         print(f"🌍 Market type: US stocks")
 
@@ -248,6 +250,8 @@ async def main(config_path=None):
             from prompts.agent_prompt import all_sse_50_symbols
 
             stock_symbols = all_sse_50_symbols
+        elif market == "in":
+            stock_symbols = all_nifty_50_symbols
         else:
             stock_symbols = all_nasdaq_100_symbols
 
@@ -297,6 +301,8 @@ async def main(config_path=None):
                 currency_symbol = "USDT"
             elif agent.market == "cn":
                 currency_symbol = "¥"
+            elif agent.market == "in":
+                currency_symbol = "₹"
             else:
                 currency_symbol = "$"
             print(f"📊 Final position summary:")

@@ -16,7 +16,7 @@ from tools.general_tools import get_config_value, write_config_value
 from tools.price_tools import (get_latest_position, get_open_prices,
                                get_yesterday_date,
                                get_yesterday_open_and_close_price,
-                               get_yesterday_profit)
+                               get_yesterday_profit, get_market_type, all_nifty_50_symbols)
 
 mcp = FastMCP("TradeTools")
 
@@ -303,9 +303,11 @@ def sell(symbol: str, amount: int) -> Dict[str, Any]:
     # Get current trading date from environment variable
     today_date = get_config_value("TODAY_DATE")
 
-    # Auto-detect market type based on symbol format
+    # Auto-detect market type based on symbol format or global config
     if symbol.endswith((".SH", ".SZ")):
         market = "cn"
+    elif symbol in all_nifty_50_symbols or get_market_type() == "in":
+        market = "in"
     else:
         market = "us"
 

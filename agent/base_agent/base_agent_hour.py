@@ -151,8 +151,8 @@ class BaseAgent_Hour(BaseAgent):
             raise ValueError("Only support hour-level trading. Please use YYYY-MM-DD HH:MM:SS format.")
         
         # Get merged.jsonl path
-        base_dir = Path(__file__).resolve().parents[2]
-        merged_file = base_dir / "data" / "merged.jsonl"
+        from tools.price_tools import get_merged_file_path
+        merged_file = get_merged_file_path(self.market)
         
         if not merged_file.exists():
             return []

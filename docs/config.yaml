@@ -134,6 +134,25 @@ markets:
         icon: "./figs/zhipu-color.svg"
         color: "#6610f2"
 
+  in:
+    name: "NSE Market (Nifty 50)"
+    subtitle: "Track how different AI models perform in Nifty 50 stock trading"
+    data_dir: "agent_data"
+    benchmark_file: "NIFTY_50_INDEX.json"
+    benchmark_name: "NIFTY 50"
+    benchmark_display_name: "Nifty 50 Index"
+    currency: "INR"
+    icon: "🇮🇳"
+    price_data_type: "merged"
+    price_data_file: "merged_in.jsonl"
+    time_granularity: "hourly"
+    enabled: true
+    agents:
+      - folder: "deepseek-chat-v3-nse"
+        display_name: "DeepSeek V3 (NSE)"
+        icon: "./figs/deepseek.svg"
+        color: "#ff006e"
+
   # crypto:  # Future crypto market support
   #   name: "Crypto Market"
   #   subtitle: "Track how different AI models perform in cryptocurrency trading"
