@@ -18,6 +18,11 @@ from tools.price_tools import (get_latest_position, get_open_prices,
                                get_yesterday_open_and_close_price,
                                get_yesterday_profit, get_market_type, all_nifty_50_symbols)
 
+# --- Indian Market Guardrails ---
+MIN_TRADE_VALUE_INR = 2000.0  # Prevent DP charge eat-up
+DP_CHARGE_INR = 16.0          # Estimated DP charge per sell action
+# -------------------------------
+
 mcp = FastMCP("TradeTools")
 
 def _position_lock(signature: str):
@@ -160,9 +165,20 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
         }
 
     # Step 4: Validate buy conditions
+    turnover = this_symbol_price * amount
+    
+    # 🇮🇳 Indian Market Buy Guardrail
+    if market == "in" and turnover < MIN_TRADE_VALUE_INR:
+        return {
+            "error": f"Transaction value (₹{turnover:.2f}) is below the minimum guardrail of ₹{MIN_TRADE_VALUE_INR}. Small trades are killed by fixed fees in India.",
+            "symbol": symbol,
+            "suggested_amount": int(MIN_TRADE_VALUE_INR / this_symbol_price) + 1,
+            "date": today_date
+        }
+
     # Calculate cash required for purchase: stock price × buy quantity
     try:
-        cash_left = current_position["CASH"] - this_symbol_price * amount
+        cash_left = current_position["CASH"] - turnover
     except Exception as e:
         # Defensive: if any unexpected structure, surface a clear error
         return {
@@ -358,6 +374,18 @@ def sell(symbol: str, amount: int) -> Dict[str, Any]:
         }
 
     # Step 4: Validate sell conditions
+    turnover = this_symbol_price * amount
+
+    # 🇮🇳 Indian Market Sell Guardrail (DP Charge Protection)
+    if market == "in":
+        if turnover < MIN_TRADE_VALUE_INR:
+            return {
+                "error": f"Sell value (₹{turnover:.2f}) is too small. DP charges (₹~16) would eat >0.8% of this trade. Minimum suggested sell value is ₹{MIN_TRADE_VALUE_INR}.",
+                "symbol": symbol,
+                "current_holding": current_position.get(symbol, 0),
+                "date": today_date
+            }
+
     # Check if holding this stock
     if symbol not in current_position:
         return {
