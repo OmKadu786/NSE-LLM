@@ -446,7 +446,10 @@ def get_open_prices(
                 open_val = bar.get("1. buy price")
                 
                 try:
-                    results[f"{current_wanted_sym}_price"] = float(open_val) if open_val is not None else None
+                    if open_val is not None:
+                        results[f"{current_wanted_sym}_price"] = float(str(open_val).replace(',', ''))
+                    else:
+                        results[f"{current_wanted_sym}_price"] = None
                 except Exception:
                     results[f"{current_wanted_sym}_price"] = None
 
@@ -522,8 +525,8 @@ def get_yesterday_open_and_close_price(
                 sell_val = bar.get("4. sell price")  # 卖出价字段
 
                 try:
-                    buy_price = float(buy_val) if buy_val is not None else None
-                    sell_price = float(sell_val) if sell_val is not None else None
+                    buy_price = float(str(buy_val).replace(',', '')) if buy_val is not None else None
+                    sell_price = float(str(sell_val).replace(',', '')) if sell_val is not None else None
                     buy_results[f"{current_wanted_sym}_price"] = buy_price
                     sell_results[f"{current_wanted_sym}_price"] = sell_price
                 except Exception:
