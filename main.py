@@ -143,6 +143,7 @@ async def main(config_path=None):
     # Get date range from configuration file
     INIT_DATE = config["date_range"]["init_date"]
     END_DATE = config["date_range"]["end_date"]
+    print(f"📅 Date range: {INIT_DATE} to {END_DATE}")
 
     # Environment variables can override dates in configuration file
     if os.getenv("INIT_DATE"):
@@ -268,6 +269,7 @@ async def main(config_path=None):
                     base_delay=base_delay,
                     initial_cash=initial_cash,
                     init_date=INIT_DATE,
+                    market=market,
                     openai_base_url=openai_base_url,
                     openai_api_key=openai_api_key
                 )
@@ -282,6 +284,7 @@ async def main(config_path=None):
                     base_delay=base_delay,
                     initial_cash=initial_cash,
                     init_date=INIT_DATE,
+                    market=market,
                     openai_base_url=openai_base_url,
                     openai_api_key=openai_api_key
                 )

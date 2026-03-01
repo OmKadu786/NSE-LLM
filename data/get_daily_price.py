@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timedelta
 import pandas as pd
 try:
-    from nselib import equity_history
+    from nselib import capital_market as nse_cm
     HAS_NSELIB = True
 except ImportError:
     HAS_NSELIB = False
@@ -40,7 +40,7 @@ def get_daily_price_nse(SYMBOL: str):
         end_date = datetime.now().strftime("%d-%m-%Y")
         start_date = (datetime.now() - timedelta(days=730)).strftime("%d-%m-%Y")
         
-        df = equity_history(SYMBOL, "EQ", start_date, end_date)
+        df = nse_cm.price_volume_data(SYMBOL, start_date, end_date)
         
         if df is None or df.empty:
             print(f"No data for {SYMBOL}")
@@ -52,11 +52,11 @@ def get_daily_price_nse(SYMBOL: str):
         for _, row in df.iterrows():
             date_str = pd.to_datetime(row['Date']).strftime("%Y-%m-%d")
             time_series[date_str] = {
-                "1. open": str(row['OPEN_PRICE']),
-                "2. high": str(row['HIGH_PRICE']),
-                "3. low": str(row['LOW_PRICE']),
-                "4. close": str(row['CLOSE_PRICE']),
-                "5. volume": str(row['TTL_TRD_QNTY'])
+                "1. open": str(row['OpenPrice']),
+                "2. high": str(row['HighPrice']),
+                "3. low": str(row['LowPrice']),
+                "4. close": str(row['ClosePrice']),
+                "5. volume": str(row['TotalTradedQuantity'])
             }
         
         data = {
@@ -68,7 +68,8 @@ def get_daily_price_nse(SYMBOL: str):
             "Time Series (Daily)": time_series
         }
         
-        with open(f"./daily_prices_{SYMBOL}.json", "w", encoding="utf-8") as f:
+        output_path = os.path.join(os.path.dirname(__file__), f"daily_prices_{SYMBOL}.json")
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
             
     except Exception as e:

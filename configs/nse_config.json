@@ -1,21 +1,21 @@
 {
-    "agent_type": "BaseAgent_Hour",
+    "agent_type": "BaseAgent",
     "market": "in",
     "date_range": {
-        "init_date": "2024-06-03 10:00:00",
-        "end_date": "2024-06-07 15:00:00"
+        "init_date": "2025-09-01",
+        "end_date": "2025-09-30"
     },
     "models": [
         {
-            "name": "deepseek-chat-v3-nse",
+            "name": "deepseek-v3-nse-sniper",
             "basemodel": "deepseek-chat",
-            "signature": "nse-nifty50-backtest",
+            "signature": "nse-sniper-daily-v2",
             "enabled": true
         }
     ],
     "agent_config": {
         "max_steps": 30,
-        "max_retries": 3,
+        "max_retries": 1,
         "base_delay": 1.0,
         "initial_cash": 10000.0,
         "verbose": true

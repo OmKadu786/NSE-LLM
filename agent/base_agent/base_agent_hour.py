@@ -248,6 +248,7 @@ class BaseAgent_Hour(BaseAgent):
         
         # Sort and remove duplicates
         trading_times = sorted(list(set(trading_times)))
+        print(f"DEBUG: Found {len(all_timestamps)} total timestamps, {len(trading_times)} filtered within range {min_datetime} to {end_dt}")
         if REGISTER:
             print("REGISTER date will not be considered")
             trading_times = trading_times[1:]
