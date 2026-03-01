@@ -420,15 +420,15 @@ def sell(symbol: str, amount: int) -> Dict[str, Any]:
             "date": today_date,
         }
 
-    # 🇨🇳 Chinese A-shares T+1 trading rule: Cannot sell shares bought on the same day
-    if market == "cn":
+    # 🇮🇳/🇨🇳 T+1 trading rule: Cannot sell shares bought on the same day in Indian/Chinese markets
+    if market in ["cn", "in"]:
         bought_today = _get_today_buy_amount(symbol, today_date, signature)
         if bought_today > 0:
             # Calculate sellable quantity (total position - bought today)
             sellable_amount = current_position[symbol] - bought_today
             if amount > sellable_amount:
                 return {
-                    "error": f"T+1 restriction violated! You bought {bought_today} shares of {symbol} today and cannot sell them until tomorrow.",
+                    "error": f"T+1 restriction violated! You bought {bought_today} shares of {symbol} today and cannot sell them until tomorrow (Delivery only).",
                     "symbol": symbol,
                     "total_position": current_position[symbol],
                     "bought_today": bought_today,
