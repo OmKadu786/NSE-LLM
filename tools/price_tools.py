@@ -52,9 +52,9 @@ def _parse_timestamp_to_dt(ts: str) -> datetime:
 
 def get_market_type() -> str:
     """
-    Returns 'in' for the NSE (Indian) environment.
+    Returns the current market type (in/us/cn) from the MARKET environment variable.
     """
-    return "in"
+    return get_config_value("MARKET", "us").lower()
 
 
 all_nifty_50_symbols = [
@@ -413,9 +413,25 @@ def get_open_prices(
             except Exception:
                 continue
             meta = doc.get("Meta Data", {}) if isinstance(doc, dict) else {}
-            sym = meta.get("2. Symbol")
-            if sym not in wanted:
+            sym = meta.get("2. Symbol", "")
+            
+            # 🇮🇳 Indian Market Suffix-Agnostic Matching
+            match_found = False
+            if market == "in":
+                clean_sym = sym.split('.')[0]
+                for wanted_sym in wanted:
+                    if wanted_sym == clean_sym or wanted_sym == sym:
+                        match_found = True
+                        current_wanted_sym = wanted_sym
+                        break
+            else:
+                if sym in wanted:
+                    match_found = True
+                    current_wanted_sym = sym
+
+            if not match_found:
                 continue
+
             # 查找所有以 "Time Series" 开头的键
             series = None
             for key, value in doc.items():
@@ -430,9 +446,9 @@ def get_open_prices(
                 open_val = bar.get("1. buy price")
                 
                 try:
-                    results[f"{sym}_price"] = float(open_val) if open_val is not None else None
+                    results[f"{current_wanted_sym}_price"] = float(open_val) if open_val is not None else None
                 except Exception:
-                    results[f"{sym}_price"] = None
+                    results[f"{current_wanted_sym}_price"] = None
 
     return results
 
@@ -471,9 +487,25 @@ def get_yesterday_open_and_close_price(
             except Exception:
                 continue
             meta = doc.get("Meta Data", {}) if isinstance(doc, dict) else {}
-            sym = meta.get("2. Symbol")
-            if sym not in wanted:
+            sym = meta.get("2. Symbol", "")
+            
+            # 🇮🇳 Indian Market Suffix-Agnostic Matching
+            match_found = False
+            if market == "in":
+                clean_sym = sym.split('.')[0]
+                for wanted_sym in wanted:
+                    if wanted_sym == clean_sym or wanted_sym == sym:
+                        match_found = True
+                        current_wanted_sym = wanted_sym
+                        break
+            else:
+                if sym in wanted:
+                    match_found = True
+                    current_wanted_sym = sym
+
+            if not match_found:
                 continue
+
             # 查找所有以 "Time Series" 开头的键
             series = None
             for key, value in doc.items():
@@ -492,17 +524,14 @@ def get_yesterday_open_and_close_price(
                 try:
                     buy_price = float(buy_val) if buy_val is not None else None
                     sell_price = float(sell_val) if sell_val is not None else None
-                    buy_results[f"{sym}_price"] = buy_price
-                    sell_results[f"{sym}_price"] = sell_price
+                    buy_results[f"{current_wanted_sym}_price"] = buy_price
+                    sell_results[f"{current_wanted_sym}_price"] = sell_price
                 except Exception:
-                    buy_results[f"{sym}_price"] = None
-                    sell_results[f"{sym}_price"] = None
+                    buy_results[f"{current_wanted_sym}_price"] = None
+                    sell_results[f"{current_wanted_sym}_price"] = None
             else:
-                # 如果昨日没有数据，尝试向前查找最近的交易日
-                # raise ValueError(f"No data found for {sym} on {yesterday_date}")
-                # print(f"No data found for {sym} on {yesterday_date}")
-                buy_results[f'{sym}_price'] = None
-                sell_results[f'{sym}_price'] = None
+                buy_results[f'{current_wanted_sym}_price'] = None
+                sell_results[f'{current_wanted_sym}_price'] = None
                 # today_dt = datetime.strptime(today_date, "%Y-%m-%d")
                 # yesterday_dt = today_dt - timedelta(days=1)
                 # current_date = yesterday_dt

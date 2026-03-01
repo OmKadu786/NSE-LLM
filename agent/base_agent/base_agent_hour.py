@@ -59,7 +59,7 @@ class BaseAgent_Hour(BaseAgent):
         self.agent = create_agent(
             self.model,
             tools=self.tools,
-            system_prompt=get_agent_system_prompt(today_date, self.signature),
+            system_prompt=get_agent_system_prompt(today_date, self.signature, self.market, self.stock_symbols),
         )
         # If verbose, try to attach console callbacks to the agent itself
         if getattr(self, "verbose", False):

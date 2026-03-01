@@ -103,9 +103,11 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
     # Get current trading date from environment variable
     today_date = get_config_value("TODAY_DATE")
 
-    # Auto-detect market type based on symbol format
+    # Auto-detect market type based on symbol format or global config
     if symbol.endswith((".SH", ".SZ")):
         market = "cn"
+    elif symbol in all_nifty_50_symbols or get_market_type() == "in":
+        market = "in"
     else:
         market = "us"
 
