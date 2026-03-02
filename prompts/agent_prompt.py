@@ -47,29 +47,34 @@ Before entering ANY trade, you must pass **both** of these gates:
 - Your **Price Target distance** must be at least **2× your Stop-Loss distance**.
 - Example: Stop-Loss is ₹30 below entry → Target must be at least ₹60 above entry.
 - This ensures bad trades are cut small, good trades run large.
-- If you cannot define a 2:1 setup, do NOT enter.
 
-You may trade as often as you want — but EVERY trade must pass both gates. There is no monthly budget limit.
+### 🛑 THE "FRICTION SHIELD" (EXIT/ROTATION RULES)
+- **No Tiny Trimming:** Never 'trim' or 'rotate' a winning position for a gross profit less than **₹60**. Selling for a ₹10-₹20 gain results in a **NET LOSS** after fixed costs (₹22 per sell session).
+- **The Rotation Hurdle:** Only rotate from a "slow" winner to a "fast" momentum stock if the expected catalyst in the *new* stock is strong enough to recover the ₹22 exit tax of the *old* stock PLUS the ₹44 Gate 1 floor.
+- **Stop-Loss Priority:** Emergency exits (Stop-Loss breaches) supersede the Friction Shield. If capital is at risk, exit immediately regardless of tax.
 
 Mandatory Thinking Protocol (follow in exact order every hourly session):
 1. 🔍 SCAN HOLDINGS (MANDATORY): For EVERY stock you currently hold, you MUST:
    a. Call `get_price_local` to get the current price for this hour.
-   b. Call the search tool for latest news (e.g., "TATAMOTORS NSE news today").
-   c. Compare current price against your stop-loss. If breached → SELL immediately.
-   d. Check for negative catalysts. If found → reassess immediately.
-   You are NOT allowed to skip this step. Use your search tool — do not say "no access."
+   b. Calculate: (current price - your entry price) as both ₹ and %.
+   c. Compare current price against your self-defined stop-loss. If breached → SELL immediately.
+   d. Compare current price against your price target. If hit → take profit immediately.
+   You are NOT allowed to skip this step. No tools other than `get_price_local` and `buy`/`sell` are available.
 
-2. ⚖️ WEIGH NEW OPPORTUNITIES: Scan 3-5 Nifty 50 stocks for high-conviction entries.
-   Both Gate 1 and Gate 2 must pass before placing any buy order.
+2. ⚖️ WEIGH NEW OPPORTUNITIES: Look at Today's Buying Prices (provided below).
+   - Identify stocks with strong upward momentum vs yesterday's close.
+   - Calculate gap: (today_buy_price - yesterday_close_price) / yesterday_close_price × 100.
+   - High positive momentum + both Gate 1 and Gate 2 pass → consider entry.
 
-3. ⚡ ACT: Execute trades. Use up to 30 steps.
+3. ⚡ ACT: Execute your buys/sells. Use up to 30 steps.
 
 
 Current information:
 - Date: {date}
 - Positions: {positions}
 - Yesterday's Prices: {yesterday_close_price}
-- Today's Buying Prices: {today_buy_price}
+- Day Opening Prices (9:15 AM): {day_open_price}
+- Today's Hourly Prices (Current): {today_buy_price}
 
 When complete, output {STOP_SIGNAL}
 """
@@ -86,34 +91,46 @@ def get_agent_system_prompt(
     if stock_symbols is None:
         stock_symbols = all_nifty_50_symbols
 
-    # Get yesterday's buy and sell prices
-    yesterday_buy_prices, yesterday_sell_prices = get_yesterday_open_and_close_price(
+    # Get yesterday's close prices
+    _, yesterday_sell_prices = get_yesterday_open_and_close_price(
         today_date, stock_symbols, market=market
     )
-    today_buy_price = get_open_prices(today_date, stock_symbols, market=market)
+    
+    # Get current session price
+    today_session_price = get_open_prices(today_date, stock_symbols, market=market)
+    
+    # Get today's opening price (9:15 AM) for daily context
+    day_open_price = {}
+    if " " in today_date:
+        day_str = today_date.split(" ")[0]
+        opening_ts = f"{day_str} 09:15:00"
+        day_open_price = get_open_prices(opening_ts, stock_symbols, market=market)
+    else:
+        day_open_price = today_session_price # Daily mode
+
     today_init_position = get_today_init_position(today_date, signature)
-    # yesterday_profit = get_yesterday_profit(today_date, yesterday_buy_prices, yesterday_sell_prices, today_init_position)
     
     # Filter positions to only show non-zero holdings and CASH
     filtered_positions = {k: v for k, v in today_init_position.items() if v != 0 or k == "CASH"}
     
-    # Filter today's prices to only show stocks with prices
-    filtered_today_prices = {k: v for k, v in today_buy_price.items() if v is not None}
-    
-    # Optional: If you want to keep the prompt even shorter, you can show only top 20 or something, 
-    # but the agent needs to know what stocks it CAN buy.
-    # For now, let's just keep the non-zero positions simplified.
+    # Filter prices to only show stocks with data
+    filtered_session_prices = {k: v for k, v in today_session_price.items() if v is not None}
+    filtered_yesterday_close = {k: v for k, v in yesterday_sell_prices.items() if v is not None}
+    filtered_day_open = {k: v for k, v in day_open_price.items() if v is not None}
     
     prompt_text = agent_system_prompt
     if market == "in":
-        prompt_text += "\nNote for Indian Market: Prioritize news from Moneycontrol, Economic Times (ET), and Mint for local stock catalysts and RBI policy updates."
+        prompt_text += "\nNote for Indian Market:"
+        prompt_text += "\n- NO search/news tool available. Base decisions purely on price: Yesterday Close vs Day Open (Overnight Gap) and Day Open vs Current Price (Daily Momentum)."
+        prompt_text += "\n- Small Position Friction: If buying < ₹4,000, fixed DP charges (₹16) represent a HIGHER % of your trade. Adjust your Gate 1 'Expected Profit' higher to compensate for this drag."
 
     return prompt_text.format(
         date=today_date,
         positions=filtered_positions,
         STOP_SIGNAL=STOP_SIGNAL,
-        yesterday_close_price=yesterday_sell_prices,
-        today_buy_price=filtered_today_prices,
+        yesterday_close_price=filtered_yesterday_close,
+        day_open_price=filtered_day_open,
+        today_buy_price=filtered_session_prices,
     )
 
 

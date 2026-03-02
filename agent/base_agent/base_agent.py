@@ -384,7 +384,11 @@ class BaseAgent:
         self.position_file = os.path.join(self.data_path, "position", "position.jsonl")
 
     def _get_default_mcp_config(self) -> Dict[str, Dict[str, Any]]:
-        """Get default MCP configuration"""
+        """Get default MCP configuration.
+        NOTE: Search/news tool intentionally excluded for Indian market backtest.
+        The news tool fetches live 2026 articles which would introduce lookahead
+        bias when backtesting historical 2025 data.
+        """
         return {
             "math": {
                 "transport": "streamable_http",
@@ -393,10 +397,6 @@ class BaseAgent:
             "stock_local": {
                 "transport": "streamable_http",
                 "url": f"http://localhost:{os.getenv('GETPRICE_HTTP_PORT', '8003')}/mcp",
-            },
-            "search": {
-                "transport": "streamable_http",
-                "url": f"http://localhost:{os.getenv('SEARCH_HTTP_PORT', '8004')}/mcp",
             },
             "trade": {
                 "transport": "streamable_http",
@@ -462,7 +462,7 @@ class BaseAgent:
                     base_url=self.openai_base_url,
                     api_key=self.openai_api_key,
                     max_retries=3,
-                    timeout=120,
+                    timeout=300,
                 )
             else:
                 self.model = ChatOpenAI(
@@ -470,7 +470,7 @@ class BaseAgent:
                     base_url=self.openai_base_url,
                     api_key=self.openai_api_key,
                     max_retries=3,
-                    timeout=120,
+                    timeout=300,
                 )
         except Exception as e:
             raise RuntimeError(f"❌ Failed to initialize AI model: {e}")

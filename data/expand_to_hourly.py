@@ -59,7 +59,9 @@ def expand_daily_to_hourly(input_file, output_file):
                         "1. buy price": str(round(p_val, 2)),
                         "2. high": str(round(high_p, 2)),
                         "3. low": str(round(low_p, 2)),
-                        "4. sell price": str(round(p_val, 2)),
+                        # Bug #2 Fix: Apply 0.05% bid-ask spread (realistic for NSE liquid stocks).
+                        # Sell price is slightly lower than buy price — prevents free round-trips.
+                        "4. sell price": str(round(p_val * 0.9995, 2)),
                         "5. volume": str(vol // 7)
                     }
 

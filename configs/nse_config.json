@@ -2,14 +2,14 @@
     "agent_type": "BaseAgent_Hour",
     "market": "in",
     "date_range": {
-        "init_date": "2025-09-01 09:00:00",
-        "end_date": "2025-09-30 15:15:00"
+        "init_date": "2025-06-01 09:00:00",
+        "end_date": "2025-06-07 15:15:00"
     },
     "models": [
         {
-            "name": "deepseek-v3-nse-sniper",
-            "basemodel": "deepseek-chat",
-            "signature": "nse-sniper-hourly-v2",
+            "name": "gpt-5-nse-sniper",
+            "basemodel": "gpt-5",
+            "signature": "gpt-5-nse-sniper",
             "enabled": true
         }
     ],

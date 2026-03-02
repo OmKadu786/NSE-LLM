@@ -174,7 +174,7 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
     # Step 4: Validate buy conditions
     turnover = this_symbol_price * amount
     
-    # 🇮🇳 Indian Market Buy Guardrail
+    # 🇮🇳 Indian Market Buy Guardrail — Minimum trade size
     if market == "in" and turnover < MIN_TRADE_VALUE_INR:
         return {
             "error": f"Transaction value (₹{turnover:.2f}) is below the minimum guardrail of ₹{MIN_TRADE_VALUE_INR}. Small trades are killed by fixed fees in India.",
@@ -182,6 +182,26 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
             "suggested_amount": int(MIN_TRADE_VALUE_INR / this_symbol_price) + 1,
             "date": today_date
         }
+
+    # 🇮🇳 Bug #1 Fix — Hard ₹4,000 per-stock position cap (40% of ₹10,000 capital)
+    # Prompt-only rules can be ignored by the LLM; this enforces it in code.
+    if market == "in":
+        MAX_POSITION_VALUE_INR = 4000.0
+        existing_shares = current_position.get(symbol, 0)
+        existing_value = existing_shares * this_symbol_price
+        new_total_value = existing_value + turnover
+        if new_total_value > MAX_POSITION_VALUE_INR:
+            allowed_value = MAX_POSITION_VALUE_INR - existing_value
+            allowed_shares = int(allowed_value / this_symbol_price)
+            return {
+                "error": f"Position cap breached! Max ₹{MAX_POSITION_VALUE_INR} per stock. You already hold ₹{existing_value:.0f} of {symbol}. You can only buy {allowed_shares} more shares (₹{allowed_shares * this_symbol_price:.0f}).",
+                "symbol": symbol,
+                "already_holding_value": round(existing_value, 2),
+                "attempted_buy_value": round(turnover, 2),
+                "max_allowed_value": MAX_POSITION_VALUE_INR,
+                "max_additional_shares": max(0, allowed_shares),
+                "date": today_date
+            }
 
     # Calculate fees if market is India
     total_fees = 0
@@ -286,7 +306,11 @@ def _get_today_buy_amount(symbol: str, today_date: str, signature: str) -> int:
                 continue
             try:
                 record = json.loads(line)
-                if record.get("date") == today_date:
+                # Bug #3 Fix: In hourly mode, dates are stored as "2025-09-02 09:15:00".
+                # Strip time component so all hours of the same day are treated as same day.
+                record_date = record.get("date", "").split(" ")[0]
+                today_date_only = today_date.split(" ")[0]
+                if record_date == today_date_only:
                     this_action = record.get("this_action", {})
                     if this_action.get("action") == "buy" and this_action.get("symbol") == symbol:
                         total_bought_today += this_action.get("amount", 0)
