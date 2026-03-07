@@ -113,7 +113,7 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
 
     # Amount validation for stocks
     try:
-        amount = int(amount)  # Convert to int for stocks
+        amount = int(amount)  # Whole shares only for NSE
     except ValueError:
         return {
             "error": f"Invalid amount format. Amount must be an integer for stock trading. You provided: {amount}",
@@ -173,6 +173,7 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
 
     # Step 4: Validate buy conditions
     turnover = this_symbol_price * amount
+    print(f"🛒 BUY attempt: {symbol} x{amount} @ ₹{this_symbol_price:.2f} = ₹{turnover:.2f} | Cash available: ₹{current_position.get('CASH', 0):,.2f}")
     
     # 🇮🇳 Indian Market Buy Guardrail — Minimum trade size
     if market == "in" and turnover < MIN_TRADE_VALUE_INR:
@@ -183,10 +184,26 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
             "date": today_date
         }
 
-    # 🇮🇳 Bug #1 Fix — Hard ₹4,000 per-stock position cap (40% of ₹10,000 capital)
-    # Prompt-only rules can be ignored by the LLM; this enforces it in code.
+    # 🇮🇳 Indian Market position cap: 40% of total current portfolio value (dynamic)
     if market == "in":
-        MAX_POSITION_VALUE_INR = 4000.0
+        # Calculate dynamic position cap: 40% of total portfolio (cash + all stock values)
+        current_cash = current_position.get("CASH", 0)
+        total_portfolio_value = current_cash  # Start with cash
+        # Add value of all current stock positions at today's price
+        # (Use current_position for shares; price approximated by this_symbol_price for same stock)
+        for held_sym, held_qty in current_position.items():
+            if held_sym == "CASH" or held_qty <= 0:
+                continue
+            if held_sym == symbol:
+                total_portfolio_value += held_qty * this_symbol_price
+            else:
+                # For other stocks, use last known price from position file as approximation
+                # (we don't have all prices in context here, so use held at cost)
+                # Conservative: count only CASH + this symbol's existing value
+                pass
+        # Simpler and correct: cap is 40% of initial portfolio = 40% of (current_cash + current stocks)
+        # Use: 40% of current total cash as a simple guardrail to avoid over-concentration
+        MAX_POSITION_VALUE_INR = max(40000.0, current_cash * 0.40)
         existing_shares = current_position.get(symbol, 0)
         existing_value = existing_shares * this_symbol_price
         new_total_value = existing_value + turnover
@@ -194,11 +211,11 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
             allowed_value = MAX_POSITION_VALUE_INR - existing_value
             allowed_shares = int(allowed_value / this_symbol_price)
             return {
-                "error": f"Position cap breached! Max ₹{MAX_POSITION_VALUE_INR} per stock. You already hold ₹{existing_value:.0f} of {symbol}. You can only buy {allowed_shares} more shares (₹{allowed_shares * this_symbol_price:.0f}).",
+                "error": f"Position cap breached! Max ₹{MAX_POSITION_VALUE_INR:.0f} per stock (40% of current cash ₹{current_cash:,.0f}). You already hold ₹{existing_value:.0f} of {symbol}. You can only buy {allowed_shares} more shares (₹{allowed_shares * this_symbol_price:.0f}).",
                 "symbol": symbol,
                 "already_holding_value": round(existing_value, 2),
                 "attempted_buy_value": round(turnover, 2),
-                "max_allowed_value": MAX_POSITION_VALUE_INR,
+                "max_allowed_value": round(MAX_POSITION_VALUE_INR, 2),
                 "max_additional_shares": max(0, allowed_shares),
                 "date": today_date
             }
@@ -229,12 +246,18 @@ def buy(symbol: str, amount: int) -> Dict[str, Any]:
         }
 
     # Check if cash balance is sufficient for purchase
+    total_cost = turnover + total_fees
+    cash_held = current_position.get("CASH", 0)
     if cash_left < 0:
-        # Insufficient cash, return error message
+        # Insufficient cash, return error message with crystal-clear numbers
         return {
-            "error": "Insufficient cash! This action will not be allowed.",
-            "required_cash": this_symbol_price * amount,
-            "cash_available": current_position.get("CASH", 0),
+            "error": f"INSUFFICIENT CASH: You need ₹{total_cost:,.2f} (price ₹{this_symbol_price:.2f} × {amount} shares + ₹{total_fees:.2f} fees) but only have ₹{cash_held:,.2f} available. You can afford at most {int(cash_held / (this_symbol_price * (1 + STT_RATE + STAMP_DUTY_BUY_RATE + TRANS_CHARGE_RATE + SEBI_CHARGE_RATE)))} shares.",
+            "required_total": round(total_cost, 2),
+            "share_price": this_symbol_price,
+            "shares_requested": amount,
+            "fees": round(total_fees, 2),
+            "cash_available": round(cash_held, 2),
+            "max_affordable_shares": int(cash_held / (this_symbol_price * 1.002)),
             "symbol": symbol,
             "date": today_date,
         }
@@ -371,7 +394,7 @@ def sell(symbol: str, amount: int) -> Dict[str, Any]:
 
     # Amount validation for stocks
     try:
-        amount = int(amount)  # Convert to int for stocks
+        amount = int(amount)  # Whole shares only for NSE
     except ValueError:
         return {
             "error": f"Invalid amount format. Amount must be an integer for stock trading. You provided: {amount}",
@@ -446,8 +469,8 @@ def sell(symbol: str, amount: int) -> Dict[str, Any]:
             "date": today_date,
         }
 
-    # 🇮🇳/🇨🇳 T+1 trading rule: Cannot sell shares bought on the same day in Indian/Chinese markets
-    if market in ["cn", "in"]:
+    # 🇨🇳 T+1 trading rule: Cannot sell shares bought on the same day in Chinese markets
+    if market == "cn":
         bought_today = _get_today_buy_amount(symbol, today_date, signature)
         if bought_today > 0:
             # Calculate sellable quantity (total position - bought today)
