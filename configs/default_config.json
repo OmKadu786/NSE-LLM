@@ -8,16 +8,16 @@
   "models": [
     {
       "name": "deepseek-chat",
-      "basemodel": "deepseek/deepseek-chat",
+      "basemodel": "mistralai/mistral-small-3.1-24b-instruct:free",
       "signature": "nse-sniper-v1-1lac",
       "enabled": true,
       "openai_base_url": "https://openrouter.ai/api/v1",
-      "openai_api_key": "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"
+      "openai_api_key": "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"
     }
   ],
   "agent_config": {
     "max_steps": 30,
-    "max_retries": 3,
+    "max_retries": 6,
     "base_delay": 1.0,
     "initial_cash": 100000.0,
     "verbose": true

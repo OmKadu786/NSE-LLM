@@ -498,18 +498,25 @@ class BaseAgent:
             f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
 
     async def _ainvoke_with_retry(self, message: List[Dict[str, str]]) -> Any:
-        """Agent invocation with retry"""
+        """Agent invocation with retry — handles 429 rate-limits with longer backoff"""
         for attempt in range(1, self.max_retries + 1):
             try:
                 if self.verbose:
                     print(f"🤖 Calling LLM API ({self.basemodel})...")
                 return await self.agent.ainvoke({"messages": message}, {"recursion_limit": 200})
             except Exception as e:
+                err_str = str(e)
+                is_rate_limit = "429" in err_str or "rate limit" in err_str.lower()
                 if attempt == self.max_retries:
                     raise e
-                print(f"⚠️ Attempt {attempt} failed, retrying after {self.base_delay * attempt} seconds...")
+                if is_rate_limit:
+                    wait = 20 * attempt  # 20s, 40s, 60s — enough for free-tier RPM reset
+                    print(f"⏳ Rate limited (429). Waiting {wait}s before retry {attempt+1}...")
+                else:
+                    wait = self.base_delay * attempt
+                    print(f"⚠️ Attempt {attempt} failed, retrying after {wait} seconds...")
                 print(f"Error details: {e}")
-                await asyncio.sleep(self.base_delay * attempt)
+                await asyncio.sleep(wait)
 
     async def run_trading_session(self, today_date: str) -> None:
         """
